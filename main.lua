@@ -19,6 +19,7 @@ beatsPerSong = beatsPerSecond * musicData:getDuration()
 beatStepInSec = musicData:getDuration() / beatsPerSong
 beatStepInSamples = musicData:getSampleCount() / beatsPerSong
 
+local loopSegment = false
 
 function math.clamp(low, n, high) return math.min(math.max(n, low), high) end
 
@@ -34,6 +35,18 @@ end
 
 function love.update(dt)
   musicCursor = music:tell('samples')
+  
+  if loopSegment then
+    -- Handle the cursor if it's outside of the segment.
+    musicCursorPercentage = musicCursor / musicData:getSampleCount()
+    if (musicCursorPercentage) > markerPair.mB.percentage then
+      musicCursor = musicData:getSampleCount() * markerPair.mA.percentage
+      music:seek(musicCursor, 'samples')
+    elseif (musicCursorPercentage) < markerPair.mA.percentage then
+      musicCursor = musicData:getSampleCount() * markerPair.mA.percentage
+      music:seek(musicCursor, 'samples')
+    end
+  end
 end
 
 function love.draw()
@@ -79,6 +92,7 @@ function love.keypressed(key, scancode, isrepeat)
     musicCursor = math.clamp(0, musicCursor, musicData:getSampleCount())
     music:seek(musicCursor, 'samples')
   elseif key == "1" then
+    -- TODO(michalc): snap to beat when setting?
     markerPair:setMarkerA(musicCursor/musicData:getSampleCount())
     markerPair.active = true
   elseif key == "2" then
@@ -94,5 +108,7 @@ function love.keypressed(key, scancode, isrepeat)
     markerPair:nudgeMarkerA(-1 * (beatStepInSec / musicData:getDuration()))
   elseif key == "]" then
     markerPair:nudgeMarkerA(beatStepInSec / musicData:getDuration())
+  elseif key == "s" then
+    loopSegment = (not loopSegment)
   end
 end

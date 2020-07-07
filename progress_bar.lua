@@ -36,8 +36,8 @@ Marker = {name = "ble", posX = 0, posY = 0, percentage = 0}
 function Marker:new(name, posX, posY)
   local ret = {}
   ret.name = name
-  ret.posX = posX;
-  ret.posY = posY;
+  ret.posX = posX
+  ret.posY = posY
   setmetatable(ret, self)
   self.__index = self
   return ret
@@ -53,12 +53,8 @@ function Marker:draw()
   love.graphics.polygon('fill', verts)
 end
 
-function Marker:setPercentage(perc)
-  self.percentarge = perc
-end
 
-
-MarkerPair = {name = "...", parentBar = nil, mA = nil, mB = nil, active = false, mASet = false, mBSet = false}
+MarkerPair = {name = "...", parentBar = nil, mA = Marker, mB = Marker, active = false, mASet = false, mBSet = false}
 
 function MarkerPair:new(name, parentBar)
   local ret = {}
@@ -77,27 +73,15 @@ function MarkerPair:draw()
 end
 
 function MarkerPair:setMarkerA(percentage)
-  self.mA:setPercentage(percentage)
+  self.mA.percentage = percentage
   self.mA.posX = self.parentBar.posX + percentage * self.parentBar.width
   self.mASet = true
 end
 
 function MarkerPair:setMarkerB(percentage)
-  self.mB:setPercentage(percentage)
+  self.mB.percentage = percentage
   self.mB.posX = self.parentBar.posX + percentage * self.parentBar.width
   self.mBSet = true
-end
-
-function MarkerPair:setMarker(percentage)
-  if self.mASet == false and self.mBSet == false then
-    self:setMarkerA(percentage)
-  elseif self.mASet == true and self.mBSet == false then
-    self:setMarkerB(percentage)
-  elseif self.mASet == false and self.mBSet == true then
-    self:setMarkerA(percentage)
-  else if self.mASet == true and self.mBSet == true then
-  end
-  end
 end
 
 function MarkerPair:getStartPercentage()
@@ -106,4 +90,24 @@ end
 
 function MarkerPair:getEndPercentage()
   return self.mB.percentage
+end
+
+function MarkerPair:nudgeMarkerA(nudge)
+  local newPercentage = self.mA.percentage + nudge
+  if newPercentage < 0.0 then
+    newPercentage = 0.0
+  elseif newPercentage > 1.0 then
+    newPercentage = 1.0
+  end
+  self:setMarkerA(newPercentage)
+end
+
+function MarkerPair:nudgeMarkerB(nudge)
+  local newPercentage = self.mB.percentage + nudge
+  if newPercentage < 0.0 then
+    newPercentage = 0.0
+  elseif newPercentage > 1.0 then
+    newPercentage = 1.0
+  end
+  self:setMarkerB(newPercentage)
 end

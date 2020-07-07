@@ -4,6 +4,7 @@ local songProgressBar
 
 local margin = 64
 
+
 musicDecoder = love.sound.newDecoder('milky_chance_dont_let_me_down.mp3')
 musicData = love.sound.newSoundData(musicDecoder)
 music = love.audio.newSource(musicData)
@@ -12,6 +13,11 @@ music:play()
 musicSampleCount = musicData:getSampleCount()
 
 musicDurationStr = ""
+BPM = 110
+beatsPerSecond = 110 / 60
+beatsPerSong = beatsPerSecond * musicData:getDuration()
+beatStepInSec = musicData:getDuration() / beatsPerSong
+beatStepInSamples = musicData:getSampleCount() / beatsPerSong
 
 
 function math.clamp(low, n, high) return math.min(math.max(n, low), high) end
@@ -48,9 +54,9 @@ function love.draw()
   songProgressBar:draw()
 
   --TODO(michalc): fix this whole segment progress bar
-  segmentLengthPercent = markerPair:getEndPercentage() - markerPair:getStartPercentage()
-  segmentLengthSamples = segmentLengthPercent * musicData:getSampleCount()
-  segmentProgress = (musicCursor - (markerPair:getStartPercentage() * musicData:getSampleCount())) / segmentLengthSamples
+  local segmentLengthPercent = markerPair:getEndPercentage() - markerPair:getStartPercentage()
+  local segmentLengthSamples = segmentLengthPercent * musicData:getSampleCount()
+  local segmentProgress = (musicCursor - (markerPair:getStartPercentage() * musicData:getSampleCount())) / segmentLengthSamples
   segmentProgressBar:setProgress(segmentProgress)
   segmentProgressBar:draw()
 
@@ -72,8 +78,11 @@ function love.keypressed(key, scancode, isrepeat)
     musicCursor = musicCursor + musicData:getSampleRate()
     musicCursor = math.clamp(0, musicCursor, musicData:getSampleCount())
     music:seek(musicCursor, 'samples')
-  elseif key == "m" then
-    markerPair:setMarker(musicCursor/musicData:getSampleCount())
+  elseif key == "1" then
+    markerPair:setMarkerA(musicCursor/musicData:getSampleCount())
+    markerPair.active = true
+  elseif key == "2" then
+    markerPair:setMarkerB(musicCursor/musicData:getSampleCount())
     markerPair.active = true
   elseif key == "space" then
     if music:isPlaying() then
@@ -81,5 +90,9 @@ function love.keypressed(key, scancode, isrepeat)
     else
       music:play()
     end
+  elseif key == "[" then
+    markerPair:nudgeMarkerA(-1 * (beatStepInSec / musicData:getDuration()))
+  elseif key == "]" then
+    markerPair:nudgeMarkerA(beatStepInSec / musicData:getDuration())
   end
 end

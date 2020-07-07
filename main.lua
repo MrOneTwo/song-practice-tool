@@ -4,6 +4,8 @@ local songProgressBar
 
 local margin = 64
 
+imgCircleRedEmpty = love.graphics.newImage("circle_red_empty.png")
+imgCircleRedFull = love.graphics.newImage("circle_red_full.png")
 
 musicDecoder = love.sound.newDecoder('milky_chance_dont_let_me_down.mp3')
 musicData = love.sound.newSoundData(musicDecoder)
@@ -76,6 +78,17 @@ function love.draw()
   -- Draw markers.
   if markerPair.active then
     markerPair:draw()
+  end
+
+  if markerPair.mASet then
+    love.graphics.draw(imgCircleRedEmpty, (cWindowWidth/2) - (imgCircleRedEmpty:getWidth() / 2) , cWindowHeight * 0.9)
+  elseif not markerPair.mASet then
+    love.graphics.draw(imgCircleRedFull, (cWindowWidth/2) - (imgCircleRedFull:getWidth() / 2), cWindowHeight * 0.9)
+  end
+  if markerPair.mBSet then
+    love.graphics.draw(imgCircleRedEmpty, (cWindowWidth/2) - (imgCircleRedEmpty:getWidth() / 2) + 24, cWindowHeight * 0.9)
+  elseif not markerPair.mBSet then
+    love.graphics.draw(imgCircleRedFull, (cWindowWidth/2) - (imgCircleRedFull:getWidth() / 2) + 24, cWindowHeight * 0.9)
   end
   
 end

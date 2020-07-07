@@ -1,7 +1,7 @@
 ProgressBar = {name = "ble",
                posX = 0, posY = 0,
                width = cWindowWidth, height = 24,
-               progress = 1.0}
+               progress = 0.0}
                
 
 function ProgressBar:new(name, posX, posY, width)
@@ -58,7 +58,7 @@ function Marker:setPercentage(perc)
 end
 
 
-MarkerPair = {name = "...", parentBar = nil, active = false}
+MarkerPair = {name = "...", parentBar = nil, mA = nil, mB = nil, active = false, mASet = false, mBSet = false}
 
 function MarkerPair:new(name, parentBar)
   local ret = {}
@@ -79,9 +79,31 @@ end
 function MarkerPair:setMarkerA(percentage)
   self.mA:setPercentage(percentage)
   self.mA.posX = self.parentBar.posX + percentage * self.parentBar.width
+  self.mASet = true
 end
 
 function MarkerPair:setMarkerB(percentage)
   self.mB:setPercentage(percentage)
   self.mB.posX = self.parentBar.posX + percentage * self.parentBar.width
+  self.mBSet = true
+end
+
+function MarkerPair:setMarker(percentage)
+  if self.mASet == false and self.mBSet == false then
+    self:setMarkerA(percentage)
+  elseif self.mASet == true and self.mBSet == false then
+    self:setMarkerB(percentage)
+  elseif self.mASet == false and self.mBSet == true then
+    self:setMarkerA(percentage)
+  else if self.mASet == true and self.mBSet == true then
+  end
+  end
+end
+
+function MarkerPair:getStartPercentage()
+  return self.mA.percentage
+end
+
+function MarkerPair:getEndPercentage()
+  return self.mB.percentage
 end

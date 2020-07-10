@@ -1,5 +1,8 @@
 require 'progress_bar'
 
+VOLUME_MUSIC_DEFAULT = 0.8
+VOLUME_METRONOME_DEFAULT = 0.2
+
 local songProgressBar
 
 local gui = {margin = 64}
@@ -11,7 +14,7 @@ musicDecoder = love.sound.newDecoder('milky_chance_dont_let_me_down.mp3')
 musicData = love.sound.newSoundData(musicDecoder)
 music = love.audio.newSource(musicData)
 music:setLooping(true)
-music:setVolume(1.0)
+music:setVolume(VOLUME_MUSIC_DEFAULT)
 musicSampleCount = musicData:getSampleCount()
 
 -- '475901__mattiagiovanetti__metronome.wav'
@@ -19,10 +22,10 @@ metronomeDecoder = love.sound.newDecoder('250552__druminfected__metronome.mp3')
 metronomeData = love.sound.newSoundData(metronomeDecoder)
 metronome = love.audio.newSource(metronomeData)
 metronome:setLooping(false)
-metronome:setVolume(0.4)
+metronome:setVolume(VOLUME_METRONOME_DEFAULT)
 metronomeBeatCount = 0
 
-state = {loopSegment = false, metronomeOn = true, tappingTempo = false}
+state = {loopSegment = false, metronomeOn = true, tappingTempo = false, musicMuted = false}
 
 -- BPM related functionality.
 beat = {BPM = 110, BPMTapped = 0, beatReferencePoint = 0, beatDelta = 0}
@@ -187,6 +190,14 @@ function love.keypressed(key, scancode, isrepeat)
     markerPair:nudgeMarkerA(beatStepInSec / musicData:getDuration())
   elseif key == "l" then
     state.loopSegment = (not state.loopSegment)
+  elseif key == "n" then
+    if state.musicMuted then
+      music:setVolume(VOLUME_MUSIC_DEFAULT)
+      state.musicMuted = false
+    else
+      music:setVolume(0.0)
+      state.musicMuted = true
+    end
   elseif key == "m" then
     state.metronomeOn = (not state.metronomeOn)
   elseif key == "t" then

@@ -22,10 +22,10 @@ metronome:setLooping(false)
 metronome:setVolume(0.4)
 metronomeBeatCount = 0
 
-state = {loopSegment = false, metronomeOn = false}
+state = {loopSegment = false, metronomeOn = true, tappingTempo = false}
 
 -- BPM related functionality.
-beat = {BPM = 110, BPMTapped = 0}
+beat = {BPM = 110, BPMTapped = 0, beatReferencePoint = 0, beatDelta = 0}
 
 function beat:BPMToBPS()
   return self.BPM / 60
@@ -43,11 +43,20 @@ function beat:BeatStepInSamp(durationInSamples)
   return durationInSamples / self:BPMToBPSong(durationInSamples)
 end
 
+function beat:BPMToSamplesDelta(BPM)
+  local BPS = BPM / 60
+  -- 1 second divided by the beats that are in a second give us delta in seconds.
+  return (1 / BPS) * musicData:getSampleRate()
+end
+
 musicDurationStr = ""
 beatTaps = {}
-BPMTapped = 0
+beatCursor = 0
+beatCount = 0
 --
 
+beatsMap = {}
+local musicCursor = 0
 
 
 function math.clamp(low, n, high) return math.min(math.max(n, low), high) end
@@ -78,6 +87,7 @@ function love.update(dt)
     -- Handle the cursor if it's outside of the segment.
     musicCursorPercentage = musicCursor / musicData:getSampleCount()
     if (musicCursorPercentage) > markerPair.mB.percentage then
+      -- Rewind music to the start of the segment.
       musicCursor = musicData:getSampleCount() * markerPair.mA.percentage
       music:seek(musicCursor, 'samples')
     elseif (musicCursorPercentage) < markerPair.mA.percentage then
@@ -86,18 +96,21 @@ function love.update(dt)
     end
   end
 
-  -- The problem here is that musicCursor % beatStepInSamples gives a local minimum value.
-  -- print (musicCursor % beatStepInSamples)
-  if (musicCursor % beat:BeatStepInSamp(musicData:getSampleCount())) < 1000 then
-    if state.metronomeOn and music:isPlaying() then
-      if (metronomeBeatCount % 4 == 0) then
-        metronome:setVolume(0.9)
-      else
-        metronome:setVolume(0.2)
-      end
-      metronome:play()
+  -- See if there is a tick value between the current music cursor and the previous one.
+  local shouldTick = false
+
+  for index, val in ipairs(beatsMap) do
+    if val > musicCursorPrev and val < musicCursor then
+      shouldTick = true
     end
   end
+
+  if state.metronomeOn and shouldTick then
+    metronome:play()
+  end
+  --
+
+  musicCursorPrev = musicCursor
 end
 
 function love.draw()
@@ -112,7 +125,7 @@ function love.draw()
   love.graphics.print(musicCursor, 10, 10)
   love.graphics.print(musicData:getSampleCount(), 10, 24)
   love.graphics.print(musicCursor/musicData:getSampleRate(), 10, 48)
-  love.graphics.print("BPM tapped: " .. BPMTapped, 10, 64)
+  love.graphics.print("BPM tapped: " .. beat.BPMTapped, 10, 64)
 
   -- Draw progress bars.
   songProgressBar:setProgress(musicCursor/musicData:getSampleCount())
@@ -177,25 +190,58 @@ function love.keypressed(key, scancode, isrepeat)
   elseif key == "m" then
     state.metronomeOn = (not state.metronomeOn)
   elseif key == "t" then
-    table.insert(beatTaps, musicCursor)
-
-    -- Create an array of beat deltas (distance between each inputted tap in samples).
-    local deltas = {}
-    if #beatTaps > 1 then
-      for index = 1, #beatTaps - 1 do
-        delta = beatTaps[index + 1] - beatTaps[index]
-        table.insert(deltas, delta)
-      end
-
-      -- Average the deltas.
-      local sum = 0
-      for i, d in ipairs(deltas) do
-        sum = sum + d
-      end
-      tapDeltaInSamples = sum / #deltas
-      tapDeltaInSeconds = tapDeltaInSamples / musicData:getSampleRate()
-      BPMTapped = 60 / tapDeltaInSeconds
+    if love.keyboard.isDown( 'lalt' ) then
+      state.tappingTempo = false
+    else
+      state.tappingTempo = true
     end
 
-  end
-end
+    if state.tappingTempo then
+      table.insert(beatTaps, musicCursor)
+
+      -- Create an array of beat deltas (distance between each inputted tap in samples).
+      local deltas = {}
+      if #beatTaps > 1 then
+        beat.beatReferencePoint = beatTaps[1]
+        for index = 1, #beatTaps - 1 do
+          delta = beatTaps[index + 1] - beatTaps[index]
+          table.insert(deltas, delta)
+        end
+
+        -- Average the deltas.
+        local sum = 0
+        for i, d in ipairs(deltas) do
+          sum = sum + d
+        end
+        tapDeltaInSamples = sum / #deltas
+        tapDeltaInSeconds = tapDeltaInSamples / musicData:getSampleRate()
+        beat.BPMTapped = math.floor(60 / tapDeltaInSeconds)
+        beat.beatDelta = beat:BPMToSamplesDelta(beat.BPMTapped)
+        beatCursor = beatTaps[#beatTaps]
+
+        -- Build the beats map. It's important that it is relative to a tapped beat.
+        beatsMapBeforeCursor = {}
+        beatsMapAfterCursor = {}
+        local stepIndex = 0
+
+        -- Build the map before the cursor.
+        repeat
+          stepIndex = stepIndex + 1
+          local beat = beatCursor - beat.beatDelta * stepIndex
+          table.insert(beatsMapBeforeCursor, beat)
+        until beat < 0
+
+        -- Build the map after the cursor.
+        stepIndex = 0
+        repeat
+          stepIndex = stepIndex + 1
+          local beat = beatCursor + beat.beatDelta * stepIndex
+          table.insert(beatsMapAfterCursor, beat)
+        until #beatsMapAfterCursor > 500
+
+        beatsMap = {unpack(beatsMapBeforeCursor), beatCursor, unpack(beatsMapAfterCursor)}
+      end
+    end
+  end -- if key == ...
+
+end -- function love.keypressed

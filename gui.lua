@@ -1,0 +1,1 @@
+gui = {margin = 64}

@@ -1,11 +1,15 @@
 require 'progress_bar'
+require 'metronome'
+require 'gui'
+
+metronome:init('250552__druminfected__metronome.mp3')
+beat:init(110)
+
+state = {loopSegment = false, metronomeOn = true, tappingTempo = false, musicMuted = false}
 
 VOLUME_MUSIC_DEFAULT = 0.8
-VOLUME_METRONOME_DEFAULT = 0.2
 
 local songProgressBar
-
-local gui = {margin = 64}
 
 imgCircleRedEmpty = love.graphics.newImage("circle_red_empty.png")
 imgCircleRedFull = love.graphics.newImage("circle_red_full.png")
@@ -17,45 +21,10 @@ music:setLooping(true)
 music:setVolume(VOLUME_MUSIC_DEFAULT)
 musicSampleCount = musicData:getSampleCount()
 
--- '475901__mattiagiovanetti__metronome.wav'
-metronomeDecoder = love.sound.newDecoder('250552__druminfected__metronome.mp3')
-metronomeData = love.sound.newSoundData(metronomeDecoder)
-metronome = love.audio.newSource(metronomeData)
-metronome:setLooping(false)
-metronome:setVolume(VOLUME_METRONOME_DEFAULT)
-metronomeBeatCount = 0
-
-state = {loopSegment = false, metronomeOn = true, tappingTempo = false, musicMuted = false}
-
--- BPM related functionality.
-beat = {BPM = 110, BPMTapped = 0, beatReferencePoint = 0, beatDelta = 0}
-
-function beat:BPMToBPS()
-  return self.BPM / 60
-end
-
-function beat:BPMToBPSong(durationInSec)
-  return self:BPMToBPS() * durationInSec
-end
-
-function beat:BeatStepInSec(durationInSec)
-  return durationInSec / self:BPMToBPSong(durationInSec)
-end
-
-function beat:BeatStepInSamp(durationInSamples)
-  return durationInSamples / self:BPMToBPSong(durationInSamples)
-end
-
-function beat:BPMToSamplesDelta(BPM)
-  local BPS = BPM / 60
-  -- 1 second divided by the beats that are in a second give us delta in seconds.
-  return (1 / BPS) * musicData:getSampleRate()
-end
 
 musicDurationStr = ""
 beatTaps = {}
 beatCursor = 0
-beatCount = 0
 --
 
 beatsMap = {}
@@ -227,7 +196,7 @@ function love.keypressed(key, scancode, isrepeat)
         tapDeltaInSamples = sum / #deltas
         tapDeltaInSeconds = tapDeltaInSamples / musicData:getSampleRate()
         beat.BPMTapped = math.floor(60 / tapDeltaInSeconds)
-        beat.beatDelta = beat:BPMToSamplesDelta(beat.BPMTapped)
+        beat.beatDelta = beat:BPMToSamplesDelta(beat.BPMTapped, musicData:getSampleRate())
         beatCursor = beatTaps[#beatTaps]
 
         -- Build the beats map. It's important that it is relative to a tapped beat.

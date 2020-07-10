@@ -2,7 +2,7 @@ require 'progress_bar'
 
 local songProgressBar
 
-local margin = 64
+local gui = {margin = 64}
 
 imgCircleRedEmpty = love.graphics.newImage("circle_red_empty.png")
 imgCircleRedFull = love.graphics.newImage("circle_red_full.png")
@@ -11,25 +11,61 @@ musicDecoder = love.sound.newDecoder('milky_chance_dont_let_me_down.mp3')
 musicData = love.sound.newSoundData(musicDecoder)
 music = love.audio.newSource(musicData)
 music:setLooping(true)
-music:play()
+music:setVolume(1.0)
 musicSampleCount = musicData:getSampleCount()
 
-musicDurationStr = ""
-BPM = 110
-beatsPerSecond = 110 / 60
-beatsPerSong = beatsPerSecond * musicData:getDuration()
-beatStepInSec = musicData:getDuration() / beatsPerSong
-beatStepInSamples = musicData:getSampleCount() / beatsPerSong
+-- '475901__mattiagiovanetti__metronome.wav'
+metronomeDecoder = love.sound.newDecoder('250552__druminfected__metronome.mp3')
+metronomeData = love.sound.newSoundData(metronomeDecoder)
+metronome = love.audio.newSource(metronomeData)
+metronome:setLooping(false)
+metronome:setVolume(0.4)
+metronomeBeatCount = 0
 
-local loopSegment = false
+state = {loopSegment = false, metronomeOn = false}
+
+-- BPM related functionality.
+beat = {BPM = 110, BPMTapped = 0}
+
+function beat:BPMToBPS()
+  return self.BPM / 60
+end
+
+function beat:BPMToBPSong(durationInSec)
+  return self:BPMToBPS() * durationInSec
+end
+
+function beat:BeatStepInSec(durationInSec)
+  return durationInSec / self:BPMToBPSong(durationInSec)
+end
+
+function beat:BeatStepInSamp(durationInSamples)
+  return durationInSamples / self:BPMToBPSong(durationInSamples)
+end
+
+musicDurationStr = ""
+beatTaps = {}
+BPMTapped = 0
+--
+
+
 
 function math.clamp(low, n, high) return math.min(math.max(n, low), high) end
 
+
+function love.filedropped(file)
+  n = file:getFilename()
+  -- if string.match(n, "tiger") or string.match(file:getF) then
+    -- print ("The word tiger was found.")
+  -- else
+    -- print ("The word tiger was not found.")
+  -- end
+end
  
 function love.load()
   love.graphics.setBackgroundColor(0.1, 0.1, 0.1, 1.0)
-  songProgressBar = ProgressBar:new("song_progress_bar", margin, cWindowHeight * 0.8, cWindowWidth * 0.8)
-  segmentProgressBar = ProgressBar:new("segment_progress_bar", margin, cWindowHeight * 0.6, cWindowWidth * 0.8)
+  songProgressBar = ProgressBar:new("song_progress_bar", gui.margin, cWindowHeight * 0.8, cWindowWidth * 0.8)
+  segmentProgressBar = ProgressBar:new("segment_progress_bar", gui.margin, cWindowHeight * 0.6, cWindowWidth * 0.8)
   musicDurationStr = string.format("%02d:%02d",
                                    musicData:getDuration() / 60, musicData:getDuration() % 60)
   markerPair = MarkerPair:new("red", songProgressBar)
@@ -38,7 +74,7 @@ end
 function love.update(dt)
   musicCursor = music:tell('samples')
   
-  if loopSegment then
+  if state.loopSegment then
     -- Handle the cursor if it's outside of the segment.
     musicCursorPercentage = musicCursor / musicData:getSampleCount()
     if (musicCursorPercentage) > markerPair.mB.percentage then
@@ -47,6 +83,19 @@ function love.update(dt)
     elseif (musicCursorPercentage) < markerPair.mA.percentage then
       musicCursor = musicData:getSampleCount() * markerPair.mA.percentage
       music:seek(musicCursor, 'samples')
+    end
+  end
+
+  -- The problem here is that musicCursor % beatStepInSamples gives a local minimum value.
+  -- print (musicCursor % beatStepInSamples)
+  if (musicCursor % beat:BeatStepInSamp(musicData:getSampleCount())) < 1000 then
+    if state.metronomeOn and music:isPlaying() then
+      if (metronomeBeatCount % 4 == 0) then
+        metronome:setVolume(0.9)
+      else
+        metronome:setVolume(0.2)
+      end
+      metronome:play()
     end
   end
 end
@@ -63,6 +112,7 @@ function love.draw()
   love.graphics.print(musicCursor, 10, 10)
   love.graphics.print(musicData:getSampleCount(), 10, 24)
   love.graphics.print(musicCursor/musicData:getSampleRate(), 10, 48)
+  love.graphics.print("BPM tapped: " .. BPMTapped, 10, 64)
 
   -- Draw progress bars.
   songProgressBar:setProgress(musicCursor/musicData:getSampleCount())
@@ -80,6 +130,7 @@ function love.draw()
     markerPair:draw()
   end
 
+  -- Draw markers' indicators at the bottom of the screen.
   if markerPair.mASet then
     love.graphics.draw(imgCircleRedEmpty, (cWindowWidth/2) - (imgCircleRedEmpty:getWidth() / 2) , cWindowHeight * 0.9)
   elseif not markerPair.mASet then
@@ -121,7 +172,30 @@ function love.keypressed(key, scancode, isrepeat)
     markerPair:nudgeMarkerA(-1 * (beatStepInSec / musicData:getDuration()))
   elseif key == "]" then
     markerPair:nudgeMarkerA(beatStepInSec / musicData:getDuration())
-  elseif key == "s" then
-    loopSegment = (not loopSegment)
+  elseif key == "l" then
+    state.loopSegment = (not state.loopSegment)
+  elseif key == "m" then
+    state.metronomeOn = (not state.metronomeOn)
+  elseif key == "t" then
+    table.insert(beatTaps, musicCursor)
+
+    -- Create an array of beat deltas (distance between each inputted tap in samples).
+    local deltas = {}
+    if #beatTaps > 1 then
+      for index = 1, #beatTaps - 1 do
+        delta = beatTaps[index + 1] - beatTaps[index]
+        table.insert(deltas, delta)
+      end
+
+      -- Average the deltas.
+      local sum = 0
+      for i, d in ipairs(deltas) do
+        sum = sum + d
+      end
+      tapDeltaInSamples = sum / #deltas
+      tapDeltaInSeconds = tapDeltaInSamples / musicData:getSampleRate()
+      BPMTapped = 60 / tapDeltaInSeconds
+    end
+
   end
 end

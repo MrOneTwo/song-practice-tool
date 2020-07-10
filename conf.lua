@@ -10,6 +10,7 @@ function love.conf(t)
   t.window.height = cWindowHeight
   t.window.resizable = false
   t.window.fullscreen = false
+  t.window.vsync = false
 
   t.modules.audio = true
   t.modules.event = true

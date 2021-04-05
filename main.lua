@@ -14,7 +14,7 @@ local songProgressBar
 imgCircleRedEmpty = love.graphics.newImage("circle_red_empty.png")
 imgCircleRedFull = love.graphics.newImage("circle_red_full.png")
 
-musicDecoder = love.sound.newDecoder('milky_chance_dont_let_me_down.mp3')
+musicDecoder = love.sound.newDecoder('ed_sheeran_i_see_fire.mp3')
 musicData = love.sound.newSoundData(musicDecoder)
 music = love.audio.newSource(musicData)
 music:setLooping(true)
@@ -30,6 +30,7 @@ beatCursor = 0
 beatsMap = {}
 local musicCursor = 0
 
+local pitch = 1.0
 
 function math.clamp(low, n, high) return math.min(math.max(n, low), high) end
 
@@ -98,6 +99,7 @@ function love.draw()
   love.graphics.print(musicData:getSampleCount(), 10, 24)
   love.graphics.print(musicCursor/musicData:getSampleRate(), 10, 48)
   love.graphics.print("BPM tapped: " .. beat.BPMTapped, 10, 64)
+  love.graphics.print("Pitch: " .. pitch, 10, 80)
 
   -- Draw progress bars.
   songProgressBar:setProgress(musicCursor/musicData:getSampleCount())
@@ -157,6 +159,16 @@ function love.keypressed(key, scancode, isrepeat)
     markerPair:nudgeMarkerA(-1 * (beatStepInSec / musicData:getDuration()))
   elseif key == "]" then
     markerPair:nudgeMarkerA(beatStepInSec / musicData:getDuration())
+  elseif key == "9" then
+    pitch = pitch - 0.05
+    pitch = math.clamp(0.5, pitch, 1.5)
+    music:setPitch(pitch)
+    print("slower")
+  elseif key == "0" then
+    pitch = pitch + 0.05
+    pitch = math.clamp(0.5, pitch, 1.5)
+    music:setPitch(pitch)
+    print("faster")
   elseif key == "l" then
     state.loopSegment = (not state.loopSegment)
   elseif key == "n" then

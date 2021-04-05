@@ -9,3 +9,4 @@ Keys:
 - **L** toggles looping
 - **Space** play/pause
 - **arrow keys** scrub forward and back
+- **9** and **0** to control playback pitch/speed
